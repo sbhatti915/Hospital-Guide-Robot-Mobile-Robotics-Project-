@@ -1,0 +1,92 @@
+<launch>
+  <!-- Always set GUI to false for AWS RoboMaker Simulation
+       Use gui:=true on roslaunch command-line to run with a gui.
+  -->
+  <arg name="model" default="waffle" doc="model type [burger, waffle, waffle_pi]"/>
+
+  <arg name="first_tb3"  default="tb3_1"/>
+  <arg name="second_tb3" default="tb3_2"/>
+
+  <arg name="first_tb3_x_pos" default="0"/>
+  <arg name="first_tb3_y_pos" default="1.0"/>
+  <arg name="first_tb3_z_pos" default=" 0.0"/>
+
+  <arg name="second_tb3_x_pos" default=" -1"/>
+  <arg name="second_tb3_y_pos" default=" 1.0"/>
+  <arg name="second_tb3_z_pos" default=" 0.0"/>
+  
+  <arg name="gui" default="false"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="map_file" default="$(find guide)/config/hospital_map.yaml"/>
+  <arg name="move_forward_only" default="true"/>
+
+  <!-- <include file="/home/ubuntu/catkin_ws/src/aws-robomaker-hospital-world/launch/view_hospital.launch"/> -->
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find aws_robomaker_hospital_world)/worlds/hospital.world"/>
+    <arg name="paused" default="false"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="gui" default="true"/>
+    <arg name="headless" default="false"/>
+    <arg name="debug" default="false"/>
+    <arg name="verbose" default="true"/>
+  </include>
+
+  <group ns = "$(arg first_tb3)">
+    <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+      <arg name="multi_robot_name" value="$(arg first_tb3)"/>
+    </include>
+    
+    
+    <param name="$(arg first_tb3)/robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_waffle.urdf.xacro"/>
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model tb3_1 -x $(arg first_tb3_x_pos) -y $(arg first_tb3_y_pos) -z $(arg first_tb3_z_pos) -param robot_description" />
+    <param name="odom_frame" value="$(arg first_tb3)/odom"/>
+    <param name="base_frame" value="$(arg first_tb3)/base_link" />
+
+    <!-- Map server -->
+    <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)">
+      <param name="frame_id" value="map" />
+    </node>
+
+    <remap from="map" to="tb3_1/map" />
+    
+      <!-- AMCL -->
+    <include file="$(find turtlebot3_navigation)/launch/amcl.launch">
+        <arg name="odom_frame_id" value="/$(arg first_tb3)/odom"/>
+        <arg name="base_frame_id" value="/$(arg first_tb3)/base_footprint"/>
+        <arg name="scan_topic"    value="/$(arg first_tb3)/scan"/>
+    </include>
+    <!-- move_base -->
+    <include file="$(find turtlebot3_navigation)/launch/move_base.launch">
+      <arg name="model" value="$(arg model)" />
+      <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+      <arg name="cmd_vel_topic" value="/$(arg first_tb3)/cmd_vel" />
+      <arg name="odom_topic" value="$(arg first_tb3)/odom"/>
+      <arg name="namespace" value="$(arg first_tb3)"/>
+    </include>
+
+    <!-- Navigation to targets -->
+    <node pkg="guide" name="goal" type="go_to_goal_comm.py"/>
+  </group>
+
+  <group ns = "$(arg second_tb3)"> 
+    <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+      <arg name="multi_robot_name" value="$(arg second_tb3)"/>
+    </include>
+    <param name="$(arg second_tb3)/robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_waffle.urdf.xacro"/>
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model tb3_2 -x $(arg second_tb3_x_pos) -y $(arg second_tb3_y_pos) -z $(arg second_tb3_z_pos) -param robot_description" />
+    <param name="odom_frame" value="$(arg second_tb3)/odom"/> 
+    <param name="base_frame" value="$(arg second_tb3)/base_link" />
+    <param name="use_tf_static" value="true"/>
+  </group>
+
+  <node pkg="guide" name="drive" type="drive_wheel.py"/>
+  <node pkg="guide" name="drive" type="find_ball.py"/>
+
+  <!-- rviz -->
+  <group if="$(arg open_rviz)"> 
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+  </group>
+
+</launch>
