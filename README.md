@@ -1,8 +1,6 @@
 # EECE5550 Final Project: Hospital Guide
 
-Team Members: Sameer Bhatti, Jordan Gittleman*, Nathaniel Gordon, Shoghair Manjikian
-
-**Team lead*
+Team Members: Sameer Bhatti, Jordan Gittleman, Nathaniel Gordon, Shoghair Manjikian
 
 ## Dependencies
 
